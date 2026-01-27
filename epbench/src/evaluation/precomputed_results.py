@@ -28,59 +28,37 @@ def get_precomputed_results(experiments,
     for i in range(len(df)):
         df_cur = df.iloc[i]
 
-        if df_cur['book_model_name'] == 'claude-3-5-sonnet-20240620':
-            if df_cur['book_nb_events'] == 20:
-                if 'book' in df_cur.index:
-                    if df_cur['book'] == 'default':
-                        my_benchmark = all_benchmarks['benchmark_claude_default_20']
-                    elif df_cur['book'] == 'news':
-                        my_benchmark = all_benchmarks['benchmark_claude_news_20']
-                    elif df_cur['book'] == 'scifi':
-                        my_benchmark = all_benchmarks['benchmark_claude_scifi_20']
-                    else:
-                        raise ValueError('Unknown book')
-                elif ('ordered' in df_cur.index) and (df_cur['ordered']):
-                    my_benchmark = all_benchmarks['benchmark_claude_default_20_ordered']
-                else:
-                    my_benchmark = all_benchmarks['benchmark_claude_default_20']
-            elif df_cur['book_nb_events'] == 200:
-                if 'book' in df_cur.index:
-                    if df_cur['book'] == 'default':
-                        my_benchmark = all_benchmarks['benchmark_claude_default_200']
-                    elif df_cur['book'] == 'news':
-                        my_benchmark = all_benchmarks['benchmark_claude_news_200']
-                    elif df_cur['book'] == 'scifi':
-                        my_benchmark = all_benchmarks['benchmark_claude_scifi_200']
-                    else:
-                        raise ValueError('Unknown book')
-                elif ('ordered' in df_cur.index) and (df_cur['ordered']):
-                    my_benchmark = all_benchmarks['benchmark_claude_default_200_ordered']
-                else:
-                    my_benchmark = all_benchmarks['benchmark_claude_default_200']
-            elif df_cur['book_nb_events'] == 2000:
-                my_benchmark = all_benchmarks['benchmark_claude_default_2000']
+        # Construct benchmark key based on model name, book type, nb_events, and ordered flag
+        model_name = df_cur['book_model_name']
+        nb_events = df_cur['book_nb_events']
+        
+        # Determine book type (default, news, scifi)
+        book_type = 'default'
+        if 'book' in df_cur.index:
+            if df_cur['book'] in ['default', 'news', 'scifi']:
+                book_type = df_cur['book']
             else:
-                raise ValueError('For `claude-3-5-sonnet-20240620`, only done with 20, 200, and 2000 target events')
-        elif df_cur['book_model_name'] == 'gpt-4o-2024-05-13':
-            if df_cur['book_nb_events'] == 20:
-                my_benchmark = all_benchmarks['benchmark_gpt_default_20']
-            elif df_cur['book_nb_events'] == 200:
-                my_benchmark = all_benchmarks['benchmark_gpt_default_200']
-            else:
-                ValueError('For `gpt-4o-2024-05-13`, only done with 20 and 200 target events')
-        else:
-            # NOTE: original (jgong)
-            # raise ValueError('Only books generated with `claude-3-5-sonnet-20240620` and `gpt-4o-2024-05-13`')
-            # NOTE: change to use the model name from book_model_name (jgong)
-            # Try to find benchmark in all_benchmarks using a generated key
-            # Format: benchmark_{model_name}_default_{nb_events} (using model name as-is, matching quickstart.py)
-            benchmark_key = f'benchmark_{df_cur["book_model_name"]}_default_{df_cur["book_nb_events"]}'
-            if benchmark_key in all_benchmarks:
-                my_benchmark = all_benchmarks[benchmark_key]
-            else:
-                raise ValueError(f'Book model `{df_cur["book_model_name"]}` not supported. '
-                               f'Only books generated with `claude-3-5-sonnet-20240620`, `gpt-4o-2024-05-13`, '
-                               f'or provide benchmark in all_benchmarks with key `{benchmark_key}`')
+                raise ValueError(f'Unknown book type: {df_cur["book"]}')
+        
+        # Check if ordered
+        is_ordered = ('ordered' in df_cur.index) and (df_cur['ordered'])
+        
+        # Build benchmark key
+        # Format: benchmark_{model_name}_{book_type}_{nb_events}{_ordered}
+        def build_key():
+            key = f'benchmark_{model_name}_{book_type}_{nb_events}'
+            if is_ordered:
+                key += '_ordered'
+            return key
+        
+        # Try primary key
+        benchmark_key = build_key()
+        
+        if benchmark_key not in all_benchmarks:
+            raise ValueError(f'Benchmark key `{benchmark_key}` not found in all_benchmarks. '
+                           f'Please provide benchmark in all_benchmarks.')
+        
+        my_benchmark = all_benchmarks[benchmark_key]
 
         if df_cur['answering_kind'] == 'prompting':
             answering_parameters = {'kind': df_cur['answering_kind'],
